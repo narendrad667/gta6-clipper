@@ -1,0 +1,74 @@
+name: GTA6 Funny Action Clips
+
+# GTA 6 ONLY. Funny/action windows only — talking-to-viewers segments are rejected
+# by action_score.py (low motion = reject). Runs free on GitHub, zero Muse tokens.
+# Repo must stay PUBLIC for unlimited free Actions minutes.
+# DEFAULT IS DRY-RUN: clips are built as artifacts, nothing uploads until the
+# narendradhakadai token secrets exist AND dry_run is set to false.
+on:
+  schedule:
+    - cron: "30 4 * * *"   # 10:00 IST
+    - cron: "30 16 * * *"  # 22:00 IST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true = build only (no upload), false = upload+schedule"
+        required: false
+        default: "true"
+      max_clips:
+        description: "Max clips this run (quota: 6/day total)"
+        required: false
+        default: "3"
+      source_id:
+        description: "Optional single YouTube video id to test"
+        required: false
+        default: ""
+
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: FFmpeg + fonts
+        run: |
+          which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          fc-list | grep -i dejavu || sudo apt-get install -y -qq fonts-dejavu-core
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build clips (funny/action only)
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          DRY="${{ github.event.inputs.dry_run }}"
+          if [ -z "$DRY" ]; then DRY="true"; fi
+          ARGS="--max-clips ${{ github.event.inputs.max_clips || '3' }}"
+          if [ "$DRY" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "${{ github.event.inputs.source_id }}" ]; then ARGS="$ARGS --source-id ${{ github.event.inputs.source_id }}"; fi
+          echo "Running: python run_clips.py $ARGS"
+          python run_clips.py $ARGS
+
+      - name: Keep clips + scores + preview frames (7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gta6-clips
+          path: |
+            sources.json
+            work_*/short_*.mp4
+            work_*/result.json
+            work_*/scores.json
+            work_*/frame_hook.jpg
+            work_*/frame_mid.jpg
+          retention-days: 7
