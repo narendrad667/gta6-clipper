@@ -37,6 +37,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Deno (yt-dlp JS runtime)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: FFmpeg + fonts
         run: |
           which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
@@ -45,11 +50,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: YouTube cookies (optional, only if secret exists)
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          if [ -n "$YT_COOKIES" ]; then
+            printf '%s' "$YT_COOKIES" > /tmp/yt_cookies.txt
+            echo "cookies file written"
+          else
+            echo "no YT_COOKIES secret - continuing without cookies"
+          fi
+
       - name: Build clips (funny/action only)
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_COOKIES_FILE: /tmp/yt_cookies.txt
         run: |
           DRY="${{ github.event.inputs.dry_run }}"
           if [ -z "$DRY" ]; then DRY="true"; fi
