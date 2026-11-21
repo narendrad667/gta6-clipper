@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+work_*/
+sources.json
+*.mp4
+*.wav
+*.webm
+*.ass
+*.jpg
+transcript.json
+scores.json
