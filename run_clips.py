@@ -13,6 +13,15 @@ import research, action_score, clip as clipmod
 def sh(cmd, **kw):
     print("+", " ".join(cmd)); subprocess.run(cmd, check=True, **kw)
 
+def yt_extra():
+    """Bot-check bypass for datacenter IPs: try mobile/TV player clients first.
+    Optional cookies: set YT_COOKIES_FILE to a Netscape cookies.txt path."""
+    args = ["--extractor-args", "youtube:player_client=android,ios,tv,web_safari,web"]
+    cf = os.environ.get("YT_COOKIES_FILE", "")
+    if cf and os.path.exists(cf):
+        args += ["--cookies", cf]
+    return args
+
 def duration_of(path):
     r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                         "-of", "csv=p=0", path], capture_output=True, text=True)
@@ -23,7 +32,7 @@ def process_source(src, workdir, idx):
     os.chdir(workdir)
     url = src["url"]
     # 1) low-res full video for scoring (360p keeps it small/fast)
-    sh(["yt-dlp", "--socket-timeout", "30", "-f",
+    sh(["yt-dlp", "--socket-timeout", "30"] + yt_extra() + ["-f",
         "bestvideo[height<=360]+bestaudio/best[height<=360]/best",
         "--merge-output-format", "mp4", "--force-overwrite", "-o", "score.mp4", url], timeout=1200)
     sh(["ffmpeg", "-y", "-i", "score.mp4", "-ar", "16000", "-ac", "1", "score.wav"], timeout=600)
@@ -57,7 +66,7 @@ def main():
                     "title": "manual test", "channel": "manual", "views": 0, "duration": 0}]
     else:
         sources = research.main(os.path.join(base, "sources.json"), limit=5)
-    made = []
+    made, failed, skipped = [], 0, 0
     for i, src in enumerate(sources):
         if len(made) >= args.max_clips:
             break
@@ -65,10 +74,18 @@ def main():
             meta = process_source(src, os.path.join(base, f"work_{i}"), i)
             if meta:
                 made.append(meta)
+            else:
+                skipped += 1
         except Exception as e:
+            failed += 1
             print(f"source {src['id']} failed: {e}", file=sys.stderr)
         os.chdir(base)
-    print(f"Built {len(made)} clips (dry_run={args.dry_run})")
+    print(f"Built {len(made)} clips (dry_run={args.dry_run}) failed={failed} skipped={skipped}")
+    # Honest failure: every attempted source errored (e.g. YouTube bot-check),
+    # or an explicit single-video test built nothing. All-rejected (skipped) stays OK.
+    if not made and (failed > 0 and skipped == 0 or args.source_id):
+        print("ERROR: no clips built and downloads failed — see log above.", file=sys.stderr)
+        sys.exit(1)
     if args.dry_run:
         print("DRY RUN: no upload. Clips are in work_*/short_*.mp4 (workflow artifacts).")
         return

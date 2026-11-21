@@ -4,7 +4,16 @@ Rules: GTA 6 only, recent, long enough to clip, high views preferred.
 Excludes walkthrough/full-game/ending/cutscene/leak/story-spoiler titles.
 Output: sources.json with up to 5 videos.
 """
-import json, subprocess, sys
+import json, os, subprocess, sys
+
+def yt_extra():
+    """Bot-check bypass for datacenter IPs: try mobile/TV player clients first.
+    Optional cookies: set YT_COOKIES_FILE to a Netscape cookies.txt path."""
+    args = ["--extractor-args", "youtube:player_client=android,ios,tv,web_safari,web"]
+    cf = os.environ.get("YT_COOKIES_FILE", "")
+    if cf and os.path.exists(cf):
+        args += ["--cookies", cf]
+    return args
 
 QUERIES = [
     "GTA 6 funny moments gameplay",
@@ -16,7 +25,7 @@ EXCLUDE = ["full game", "walkthrough", "ending", "cutscene", "leak", "story mode
 MIN_DUR, MAX_DUR = 240, 4 * 3600  # 4 min .. 4 h
 
 def search(query, n=12):
-    cmd = ["yt-dlp", "--socket-timeout", "30", "--flat-playlist",
+    cmd = ["yt-dlp", "--socket-timeout", "30"] + yt_extra() + ["--flat-playlist",
            "--print", "%(id)s\t%(duration)s\t%(view_count)s\t%(upload_date)s\t%(channel)s\t%(title)s",
            f"ytsearch{n}:{query}"]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)

@@ -3,6 +3,15 @@ import json, os, subprocess
 
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
+def yt_extra():
+    """Bot-check bypass for datacenter IPs: try mobile/TV player clients first.
+    Optional cookies: set YT_COOKIES_FILE to a Netscape cookies.txt path."""
+    args = ["--extractor-args", "youtube:player_client=android,ios,tv,web_safari,web"]
+    cf = os.environ.get("YT_COOKIES_FILE", "")
+    if cf and os.path.exists(cf):
+        args += ["--cookies", cf]
+    return args
+
 def ts(sec):
     m, s = divmod(int(sec), 60); h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}"
@@ -12,7 +21,7 @@ def ass_time(sec):
     return f"{h}:{m:02d}:{s:05.2f}"
 
 def download_segment(url, start, end, out):
-    cmd = ["yt-dlp", "--socket-timeout", "30",
+    cmd = ["yt-dlp", "--socket-timeout", "30"] + yt_extra() + [
            "--download-sections", f"*{ts(start)}-{ts(end)}",
            "-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
            "--merge-output-format", "mp4", "--force-overwrite", "-o", out, url]
