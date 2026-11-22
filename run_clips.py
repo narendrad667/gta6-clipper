@@ -16,7 +16,10 @@ def sh(cmd, **kw):
 def yt_extra():
     """Bot-check bypass for datacenter IPs: try mobile/TV player clients first.
     Optional cookies: set YT_COOKIES_FILE to a Netscape cookies.txt path."""
-    args = ["--extractor-args", "youtube:player_client=android,ios,tv,web_safari,web"]
+    args = ["--extractor-args", "youtube:player_client=mweb,web,web_safari,android,ios,tv"]
+    pot = os.environ.get("YT_POT_BASE_URL", "")
+    if pot:
+        args += ["--extractor-args", f"youtubepot-bgutilhttp:base_url={pot}"]
     cf = os.environ.get("YT_COOKIES_FILE", "")
     if cf and os.path.exists(cf):
         args += ["--cookies", cf]
