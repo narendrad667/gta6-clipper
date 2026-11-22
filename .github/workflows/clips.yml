@@ -50,6 +50,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Start PO token provider (bgutil)
+        run: |
+          docker run --name bgutil-provider -d --init -p 127.0.0.1:4416:4416 brainicism/bgutil-ytdlp-pot-provider
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4416/ping >/dev/null; then echo "PO provider ready"; break; fi
+            sleep 2
+          done
+          curl -s http://127.0.0.1:4416/ping || docker logs bgutil-provider || true
+
       - name: YouTube cookies (optional, only if secret exists)
         env:
           YT_COOKIES: ${{ secrets.YT_COOKIES }}
@@ -67,6 +76,7 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_COOKIES_FILE: /tmp/yt_cookies.txt
+          YT_POT_BASE_URL: http://127.0.0.1:4416
         run: |
           DRY="${{ github.event.inputs.dry_run }}"
           if [ -z "$DRY" ]; then DRY="true"; fi
